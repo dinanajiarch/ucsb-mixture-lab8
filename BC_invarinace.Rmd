@@ -1,0 +1,635 @@
+---
+title: "LCA Meausrement Invariance"
+author: "Lab Created By Karen Nylund-Gibson, Example from Nylund-Gibson et al. (2022)"
+date: "2024-11-18"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, 
+                      warning = FALSE,
+                      message = FALSE,
+                      tidy.opts=list(width.cutoff=60)) #Here, I have made it so that when you knit your .rmd, warnings and messages will not show up in the html markdown. 
+```
+
+# LCA Measurement Invariance
+
+Example is related (but not exactly the same) from *The Utility of Latent Class Analysis to Understand Heterogeneity in Youth Coping Strategies: A Methodological Introduction* (Nylund-Gibson et al., 2022) published in Behavior Disorders. See here: https://doi.org/10.1177/01987429211067214
+
+--------------------------------------------------------------------------------------
+
+Load packages 
+
+```{r}
+library(tidyverse)
+library(haven)
+library(glue)
+library(MplusAutomation)
+library(rhdf5)
+library(here)
+library(janitor)
+library(gt)
+library(semPlot)
+library(reshape2)
+library(cowplot)
+library(filesstrings)
+library(hrbrthemes)
+library(poLCA)
+library(haven)
+library(psych)
+```
+
+--------------------------------------------------------------------------------------
+
+Read in data
+
+(Note: `bd` stands for Behavior Disorders)
+
+```{r}
+bd <-read_csv(here("data","bd.csv"))
+
+
+describe(bd)
+```
+
+--------------------------------------------------------------------------------------
+
+## Descriptive Statistics
+
+Looking at the observed proportions for funsies.
+
+```{r}
+bd %>% 
+  pivot_longer(do1:do7, names_to = "variable") %>% 
+  drop_na() %>% 
+  group_by(variable) %>% 
+  summarise(prop = sum(value)/n(),
+            n = n()) 
+```
+
+
+```{r}
+ds <- bd %>% 
+  pivot_longer(do1:do7, names_to = "variable") %>% 
+  drop_na() %>% 
+  group_by(variable) %>% 
+  summarise(prop = sum(value)/n(),
+            n = n()) 
+
+prop_table <- ds %>% 
+  gt () %>% 
+  tab_header(title = md("**Descriptive Summary**")) %>%
+  cols_label(
+    variable = "Variable",
+    n = md("*N*"),
+    prop = md("Proportion Endorsed")
+  ) %>%
+  fmt_number(c(2),
+             decimals = 2) %>% 
+  cols_align(
+    align = "center",
+    columns = prop
+  )
+
+prop_table
+
+# Save as a Word doc
+#gtsave(prop_table, here("figures", "prop_table.docx"))
+```
+
+
+--------------------------------------------------------------------------------------
+
+
+## LCA Enumeration (Entire Sample)
+
+```{r, eval = FALSE}
+
+lca_bd  <- lapply(1:6, function(k) {
+  lca_enum  <- mplusObject(
+      
+    TITLE = glue("LCA {k}-Class (Entire Sample)"), 
+  
+    VARIABLE = glue(
+    "categorical = do1-do7; 
+     usevar = do1-do7;
+     classes = c({k}); "),
+  
+  ANALYSIS = 
+   "estimator = mlr; 
+    type = mixture;
+    starts = 500 100; 
+    processors = 10;",
+  
+  OUTPUT = "sampstat residual tech11 tech14 svalues;",
+  
+  PLOT = 
+    "type = plot3; 
+    series = do1-do7(*);",
+  
+  usevariables = colnames(bd),
+  rdata = bd)
+
+lca_enum_fit <- mplusModeler(lca_enum, 
+                            dataout=glue(here("enum_total", "db.dat")),
+                            modelout=glue(here("enum_total", "c{k}_bd.inp")) ,
+                            check=TRUE, run = TRUE, hashfilename = FALSE)
+})
+
+```
+
+--------------------------------------------------------------------------------------
+
+
+### Table of Fit
+
+First, extract data:
+
+```{r}
+
+output_bd <- readModels(here("enum_total"), quiet = TRUE)
+
+enum_extract <- LatexSummaryTable(
+  output_bd,
+  keepCols = c(
+    "Title",
+    "Parameters",
+    "LL",
+    "BIC",
+    "aBIC",
+    "BLRT_PValue",
+    "T11_VLMR_PValue",
+    "Observations"
+  ),
+  sortBy = "Title"
+)
+
+
+allFit <- enum_extract %>%
+  mutate(CAIC = -2 * LL + Parameters * (log(Observations) + 1)) %>%
+  mutate(AWE = -2 * LL + 2 * Parameters * (log(Observations) + 1.5)) %>%
+  mutate(SIC = -.5 * BIC) %>%
+  mutate(expSIC = exp(SIC - max(SIC))) %>%
+  mutate(BF = exp(SIC - lead(SIC))) %>%
+  mutate(cmPk = expSIC / sum(expSIC)) %>%
+  dplyr::select(1:5, 9:10, 6:7, 13, 14) %>%
+  arrange(Parameters)
+```
+
+Then, create table:
+
+```{r}
+fit_table1 <- allFit %>%
+  gt() %>%
+  tab_header(title = md("**Model Fit Summary Table**")) %>%
+  cols_label(
+    Title = "Classes",
+    Parameters = md("Par"),
+    LL = md("*LL*"),
+    T11_VLMR_PValue = "VLMR",
+    BLRT_PValue = "BLRT",
+    BF = md("BF"),
+    cmPk = md("*cmPk*")
+  ) %>%
+  tab_footnote(
+    footnote = md(
+      "*Note.* Par = Parameters; *LL* = model log likelihood;
+BIC = Bayesian information criterion;
+aBIC = sample size adjusted BIC; CAIC = consistent Akaike information criterion;
+AWE = approximate weight of evidence criterion;
+BLRT = bootstrapped likelihood ratio test p-value;
+VLMR = Vuong-Lo-Mendell-Rubin adjusted likelihood ratio test p-value;
+*cmPk* = approximate correct model probability."
+    ),
+locations = cells_title()
+  ) %>%
+  tab_options(column_labels.font.weight = "bold") %>%
+  fmt_number(c(3:7),
+             decimals = 2) %>%
+  fmt_missing(1:11,
+              missing_text = "--") %>%
+  fmt(
+    c(8:9, 11),
+    fns = function(x)
+      ifelse(x < 0.001, "<.001",
+             scales::number(x, accuracy = .01))
+  ) %>%
+  fmt(
+    10,
+    fns = function (x)
+      ifelse(x > 100, ">100",
+             scales::number(x, accuracy = .01))
+  ) %>%  
+  tab_style(
+    style = list(
+      cell_text(weight = "bold")
+      ),
+    locations = list(cells_body(
+     columns = BIC,
+     row = BIC == min(BIC[c(1:6)]) # Change this to the number of classes you estimated
+    ),
+    cells_body(
+     columns = aBIC,
+     row = aBIC == min(aBIC[1:6])
+    ),
+    cells_body(
+     columns = CAIC,
+     row = CAIC == min(CAIC[1:6])
+    ),
+    cells_body(
+     columns = AWE,
+     row = AWE == min(AWE[1:6])
+    ),
+    cells_body(
+     columns = cmPk,
+     row =  cmPk == max(cmPk[1:6])
+     ),   
+    cells_body(
+     columns = BF,
+     row =  BF > 10),
+    cells_body( 
+     columns =  T11_VLMR_PValue,
+     row =  ifelse(T11_VLMR_PValue < .001 & lead(T11_VLMR_PValue) > .05, T11_VLMR_PValue < .001, NA)),
+    cells_body(
+     columns =  BLRT_PValue,
+     row =  ifelse(BLRT_PValue < .001 & lead(BLRT_PValue) > .05, BLRT_PValue < .001, NA))
+  )
+)
+
+fit_table1
+```
+
+--------------------------------------------------------------------------------------
+
+### 3-Class Probability Plot (Entire Sample)
+
+Boys and girls together
+
+```{r}
+source("plot_lca.txt")
+
+plot_lca(model_name = output_bd$c3_bd.out)
+```
+
+--------------------------------------------------------------------------------------
+
+## LCA Enumeration (Males Only)
+
+
+```{r, eval = FALSE}
+
+lca_bd  <- lapply(1:6, function(k) {
+  lca_enum  <- mplusObject(
+      
+    TITLE = glue("{k}-Class (Males Only)"), 
+  
+    VARIABLE = glue(
+    "categorical = do1-do7; 
+     usevar = do1-do7;
+     useobs = female == 0;
+     classes = c({k});"),
+  
+  ANALYSIS = 
+   "estimator = mlr; 
+    type = mixture;
+    starts = 500 100; 
+    processors = 10;",
+  
+  OUTPUT = "sampstat residual tech11 tech14 svalues;",
+  
+  PLOT = 
+    "type = plot3; 
+    series = do1-do7(*);",
+  
+  usevariables = colnames(bd),
+  rdata = bd)
+
+lca_enum_fit <- mplusModeler(lca_enum, 
+                            dataout=glue(here("enum_males", "db.dat")),
+                            modelout=glue(here("enum_males", "c{k}_bd_males.inp")) ,
+                            check=TRUE, run = TRUE, hashfilename = FALSE)
+})
+
+```
+
+--------------------------------------------------------------------------------------
+
+### Table of Fit
+
+Enumeration Table Shortcut
+
+```{r}
+source("enum_table.txt")
+
+output_males <- readModels(here("enum_males"), quiet = TRUE)
+
+enum_table(output_males, 1:6)
+```
+
+--------------------------------------------------------------------------------------
+
+### Males: Probability Plot
+
+```{r}
+source("plot_lca.txt")
+
+male_plot <- plot_lca(model_name = output_males$c3_bd_males.out)
+male_plot
+```
+
+--------------------------------------------------------------------------------------
+
+## LCA Enumeration (Females Only)
+
+```{r, eval = FALSE}
+
+lca_bd  <- lapply(1:6, function(k) {
+  lca_enum  <- mplusObject(
+      
+    TITLE = glue("{k}-Class (Females Only)"), 
+  
+    VARIABLE = glue(
+    "categorical = do1-do7; 
+     usevar = do1-do7;
+     useobs = female == 1;
+     classes = c({k});"),
+  
+  ANALYSIS = 
+   "estimator = mlr; 
+    type = mixture;
+    starts = 500 100; 
+    processors = 10;",
+  
+  OUTPUT = "sampstat residual tech11 tech14 svalues;",
+  
+  PLOT = 
+    "type = plot3; 
+    series = do1-do7(*);",
+  
+  usevariables = colnames(bd),
+  rdata = bd)
+
+lca_enum_fit <- mplusModeler(lca_enum, 
+                            dataout=glue(here("enum_females", "db.dat")),
+                            modelout=glue(here("enum_females", "c{k}_bd_females.inp")) ,
+                            check=TRUE, run = TRUE, hashfilename = FALSE)
+})
+
+```
+
+
+--------------------------------------------------------------------------------------
+
+### Table of Fit
+
+Enumeration Table Shortcut
+
+```{r}
+source("enum_table.txt")
+
+output_females <- readModels(here("enum_females"), quiet = TRUE)
+
+enum_table(output_females, 1:6)
+```
+
+
+--------------------------------------------------------------------------------------
+
+### Females: Probability Plot
+
+```{r}
+source("plot_lca.txt")
+
+female_plot <- plot_lca(model_name = output_females$c2_bd_females.out)
+female_plot
+```
+
+--------------------------------------------------------------------------------------
+
+## Compare Plots 
+
+This allows us to have a visual understanding of the latent classes for males and females.  When we test measurement invarinace, we would estimate one set of classes for both genders. So having the group specific solution being simliar (e.g., nubmber of classes is the same and the profiles look similiar, you'd name them the same across groups)
+
+```{r, fig.width=12, fig.height=5}
+library(patchwork)
+
+male_plot + female_plot
+```
+
+--------------------------------------------------------------------------------------
+
+### Measurement Invariance 
+
+To test for measurement invariance, we estimate the 3-class model for female and male in one input file using the knownclass option in Mplus. This first run is a  3-class model with groups constrained to be equal. 
+
+```{r, eval = FALSE}
+
+invar  <- mplusObject(
+  
+ TITLE = "LCA - Measurement Invariance", 
+  
+  VARIABLE = 
+  "categorical = do1-do7; 
+   usevar =  do1-do7;
+   knownclass = g (female);
+   missing are all (999);
+   classes = g(2) c(3);",
+  
+  ANALYSIS = 
+   "estimator = mlr; 
+    type = mixture;    
+    starts = 500 100;",
+  
+  MODEL=
+   "
+%overall%
+
+ c on g;
+
+ %g#1.c#1%
+ [do1$1 - do7$1] (1-7);
+ 
+ %g#1.c#2%
+ [do1$1 - do7$1] (8-14);
+ 
+ %g#1.c#3%
+ [do1$1 - do7$1] (15-21);
+ 
+
+ 
+ %g#2.c#1%
+ [do1$1 - do7$1](1-7);
+ 
+ %g#2.c#2%
+ [do1$1 - do7$1](8-14);
+ 
+ %g#2.c#3%
+ [do1$1 - do7$1](15-21);
+ 
+",
+  OUTPUT = "patterns tech10 tech11 tech14",
+  
+  usevariables = colnames(bd),
+  rdata = bd)
+
+invar_fit <- mplusModeler(invar,
+                dataout=here("mplus", "invar.dat"),
+                modelout=here("mplus", "invar.inp") ,
+                check=TRUE, run = TRUE, hashfilename = FALSE)
+
+```
+
+
+--------------------------------------------------------------------------------------
+
+### Measurement Non-Invariance
+
+This is the knownclass model that allows the esitmates to be freely esitmated. 
+
+```{r, eval = FALSE}
+
+noninvar  <- mplusObject(
+  
+ TITLE = "LCA - non-invariant", 
+  
+  VARIABLE = 
+  "categorical = do1-do7; 
+   usevar =  do1-do7;
+   knownclass = g (female);
+   missing are all (999);
+   classes = g(2) c(3);",
+  
+  ANALYSIS = 
+   "estimator = mlr; 
+    type = mixture;    
+    starts = 500 100; 
+   ! processors = 10;
+    !optseed = 887676;",
+  
+  MODEL=
+   "
+%overall%
+ 
+ c on g;
+ 
+ %g#1.c#1%
+ [do1$1 - do7$1];
+ 
+ %g#1.c#2%
+ [do1$1 - do7$1];
+ 
+ %g#1.c#3%
+ [do1$1 - do7$1];
+
+ 
+ %g#2.c#1%
+ [do1$1 - do7$1];
+ 
+ %g#2.c#2%
+ [do1$1 - do7$1];
+ 
+ %g#2.c#3%
+ [do1$1 - do7$1];
+ 
+",
+  OUTPUT = "patterns tech10 tech11 tech14",
+  
+  usevariables = colnames(bd),
+  rdata = bd)
+
+noninvar_fit <- mplusModeler(noninvar,
+                dataout=here("mplus", "noninvar.dat"),
+                modelout=here("mplus", "noninvar.inp") ,
+                check=TRUE, run = TRUE, hashfilename = FALSE)
+```
+
+--------------------------------------------------------------------------------------
+
+## Model Test
+
+Read in both invariant and non-invariant models:
+
+```{r}
+output_invar<- readModels(here("mplus", "invar.out"))
+output_noninvar<- readModels(here("mplus", "noninvar.out"))
+```
+
+
+Then use the `compareModels` function from MplusAutomation:
+
+-   non-invariant (comparison): This model has **more** parameters.
+
+-   invariant (nested): This model has **less** parameters.
+
+```{r}
+# MplusAutomation Method using `compareModels` 
+
+compareModels(output_invar,output_noninvar, diffTest = TRUE, show = "summaries")
+```
+
+The chi-square difference test for nested models based on loglikelihood evaluates whether `m2` or the non-invariant model significantly improves in model fit compared to `m1` or the invariant model (assuming that the models are nested). Based on this *p*-value (0.0091), we would conclude that the non-invariant model fits the data significantly better than the invariant model, or that there is not invariance in the measurement model across gender. For more information on this chi-square test, see [here](https://stats.oarc.ucla.edu/mplus/faq/how-can-i-compute-a-chi-square-test-for-nested-models-with-the-mlr-or-mlm-estimators/), it is under *A test using the log-likelihood*.
+
+**RESULT**: The MLR scaled $\chi^2$ difference test for models based on logliklihood, comparing the nested invariant model and the non-invariant model, is $\chi^2 (21) = 39.281, p = .009$.
+
+--------------------------------------------------------------------------------------
+
+Or, you can manually calculate this *p*-value by extracting the values from the output files:
+
+```{r}
+# *0 = null or nested model & *1 = comparison or parent model
+ 
+# Log Likelihood Values
+L0 <- output_invar$summaries$LL
+L1 <- output_noninvar$summaries$LL 
+
+# LRT equation
+lr <- -2*(L0-L1) 
+
+# Parameters
+p0 <- output_invar[["summaries"]][["Parameters"]] 
+p1 <- output_noninvar[["summaries"]][["Parameters"]]
+
+# Scaling Correction Factors
+c0 <- output_invar[["summaries"]][["LLCorrectionFactor"]]
+c1 <- output_noninvar[["summaries"]][["LLCorrectionFactor"]]
+
+# Difference Test Scaling correction
+cd <- ((p0*c0)-(p1*c1))/(p0-p1)
+
+# Chi-square difference test(TRd)
+TRd <- (lr)/(cd)
+
+# Degrees of freedom
+df <- abs(p0 - p1)
+
+
+# Significance test
+(p_diff <- pchisq(TRd, df, lower.tail=FALSE))
+
+```
+
+
+And use a function that creates the sentence for you ;)
+
+```{r}
+# First, I created a function to determine how to handle p-values (don't touch this function) 
+
+p_value <- function(x) {
+  if (x >= 0.001) {
+    return(glue('= ', sprintf('%.3f',x)))
+  }
+  else {
+    return('< .001')
+  }
+}
+
+# Then, I re-created the sentence using the values we created in the code chunk above:
+
+glue('
+     
+     The MLR scaled Chi-square difference test for models based on logliklihood, comparing the nested invariant model and the non-invariant model, is, Chi-square ({df}) = {sprintf("%.3f",TRd)}, p {p_value(p_diff)}.
+     
+     ')    
+```
+
+    

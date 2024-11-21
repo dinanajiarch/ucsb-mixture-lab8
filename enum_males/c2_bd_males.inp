@@ -1,0 +1,23 @@
+TITLE:
+2-Class (Males Only)
+DATA:
+FILE = "C:/Users/dinan/Box/TA - ED 201/Labs/ucsb-mixture-lab8/enum_males/
+db.dat"; 
+VARIABLE:
+NAMES = id FEMALE studyethraw ETHN_CMP do1 do2 do3 do4 do5 do6 do7 psolv1 psolv2
+     psolv3 psolv4 psolv5 psolv6 psolv7 psolv8 SOC_STRS BOTHR_U negmood1 posmood1; 
+ MISSING=.;
+ categorical = do1-do7; 
+usevar = do1-do7;
+useobs = female == 0;
+classes = c(2);
+ANALYSIS:
+estimator = mlr; 
+    type = mixture;
+    starts = 500 100; 
+    processors = 10;
+OUTPUT:
+sampstat residual tech11 tech14 svalues;
+PLOT:
+type = plot3; 
+    series = do1-do7(*);

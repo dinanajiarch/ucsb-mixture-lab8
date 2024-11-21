@@ -1,0 +1,47 @@
+TITLE:
+LCA - Measurement Invariance
+DATA:
+FILE = "C:/Users/Karen Nylund-Gibson/Box/TA - ED 201/Labs/mg_invar/mplus/
+invar.dat"; 
+VARIABLE:
+NAMES = id FEMALE studyethraw ETHN_CMP do1 do2 do3 do4 do5 do6 do7 psolv1 psolv2
+     psolv3 psolv4 psolv5 psolv6 psolv7 psolv8 SOC_STRS BOTHR_U negmood1 posmood1; 
+ MISSING=.;
+ categorical = do1-do7; 
+   usevar =  do1-do7;
+   knownclass = g (female);
+   missing are all (999);
+   classes = g(2) c(2);
+ANALYSIS:
+estimator = mlr; 
+    type = mixture;    
+    starts = 500 100;
+MODEL:
+
+%overall%
+
+ c on g;
+
+ %g#1.c#1%
+ [do1$1 - do7$1] (1-7);
+ 
+ %g#1.c#2%
+ [do1$1 - do7$1] (8-14);
+ 
+! %g#1.c#3%
+ ![do1$1 - do7$1] (15-21);
+ 
+
+ 
+ %g#2.c#1%
+ [do1$1 - do7$1](1-7);
+ 
+ %g#2.c#2%
+ [do1$1 - do7$1](8-14);
+ 
+ !%g#2.c#3%
+ ![do1$1 - do7$1](15-21);
+ 
+
+OUTPUT:
+patterns tech10 tech11 tech14
