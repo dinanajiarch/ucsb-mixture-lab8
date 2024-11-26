@@ -1,7 +1,7 @@
 TITLE:
 LCA - Measurement Invariance
 DATA:
-FILE = "C:/Users/Karen Nylund-Gibson/Box/TA - ED 201/Labs/mg_invar/mplus/
+FILE = "C:/Users/dnajiarch/Box/TA - ED 201/Labs/ucsb-mixture-lab8/mplus/
 invar.dat"; 
 VARIABLE:
 NAMES = id FEMALE studyethraw ETHN_CMP do1 do2 do3 do4 do5 do6 do7 psolv1 psolv2
@@ -28,20 +28,10 @@ MODEL:
  %g#1.c#2%
  [do1$1 - do7$1] (8-14);
  
-! %g#1.c#3%
- ![do1$1 - do7$1] (15-21);
- 
-
- 
  %g#2.c#1%
  [do1$1 - do7$1](1-7);
  
  %g#2.c#2%
  [do1$1 - do7$1](8-14);
- 
- !%g#2.c#3%
- ![do1$1 - do7$1](15-21);
- 
-
 OUTPUT:
 patterns tech10 tech11 tech14

@@ -1,13 +1,13 @@
 Mplus VERSION 8.11
 MUTHEN & MUTHEN
-11/20/2024  11:30 AM
+11/26/2024   1:28 PM
 
 INPUT INSTRUCTIONS
 
   TITLE:
   LCA - Measurement Invariance
   DATA:
-  FILE = "C:/Users/Karen Nylund-Gibson/Box/TA - ED 201/Labs/mg_invar/mplus/
+  FILE = "C:/Users/dnajiarch/Box/TA - ED 201/Labs/ucsb-mixture-lab8/mplus/
   invar.dat";
   VARIABLE:
   NAMES = id FEMALE studyethraw ETHN_CMP do1 do2 do3 do4 do5 do6 do7 psolv1 psolv2
@@ -34,21 +34,11 @@ INPUT INSTRUCTIONS
    %g#1.c#2%
    [do1$1 - do7$1] (8-14);
 
-  ! %g#1.c#3%
-   ![do1$1 - do7$1] (15-21);
-
-
-
    %g#2.c#1%
    [do1$1 - do7$1](1-7);
 
    %g#2.c#2%
    [do1$1 - do7$1](8-14);
-
-   !%g#2.c#3%
-   ![do1$1 - do7$1](15-21);
-
-
   OUTPUT:
   patterns tech10 tech11 tech14
 
@@ -137,7 +127,7 @@ Parameterization                                             LOGIT
 Link                                                         LOGIT
 
 Input data file(s)
-  C:/Users/Karen Nylund-Gibson/Box/TA - ED 201/Labs/mg_invar/mplus/invar.dat
+  C:/Users/dnajiarch/Box/TA - ED 201/Labs/ucsb-mixture-lab8/mplus/invar.dat
 Input data format  FREE
 
 
@@ -1913,9 +1903,9 @@ TECHNICAL 10 OUTPUT
        Category 2     Category 2        0.132       0.075             0.057            1.952
 
 
-     Beginning Time:  11:30:08
-        Ending Time:  11:30:22
-       Elapsed Time:  00:00:14
+     Beginning Time:  13:28:46
+        Ending Time:  13:28:58
+       Elapsed Time:  00:00:12
 
 
 

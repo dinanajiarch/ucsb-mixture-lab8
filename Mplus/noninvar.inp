@@ -1,7 +1,7 @@
 TITLE:
-LCA - non-invariant
+LCA - Measurement Non-Invariance
 DATA:
-FILE = "C:/Users/Karen Nylund-Gibson/Box/TA - ED 201/Labs/mg_invar/mplus/
+FILE = "C:/Users/dnajiarch/Box/TA - ED 201/Labs/ucsb-mixture-lab8/mplus/
 noninvar.dat"; 
 VARIABLE:
 NAMES = id FEMALE studyethraw ETHN_CMP do1 do2 do3 do4 do5 do6 do7 psolv1 psolv2
@@ -15,9 +15,7 @@ NAMES = id FEMALE studyethraw ETHN_CMP do1 do2 do3 do4 do5 do6 do7 psolv1 psolv2
 ANALYSIS:
 estimator = mlr; 
     type = mixture;    
-    starts = 500 100; 
-   ! processors = 10;
-    !optseed = 887676;
+    starts = 500 100;
 MODEL:
 
 %overall%
@@ -29,9 +27,6 @@ MODEL:
  
  %g#1.c#2%
  [do1$1 - do7$1];
- 
-! %g#1.c#3%
-! [do1$1 - do7$1];
 
  
  %g#2.c#1%
@@ -39,10 +34,5 @@ MODEL:
  
  %g#2.c#2%
  [do1$1 - do7$1];
- 
-! %g#2.c#3%
-! [do1$1 - do7$1];
- 
-
 OUTPUT:
 patterns tech10 tech11 tech14
